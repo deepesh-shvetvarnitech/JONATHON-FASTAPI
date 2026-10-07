@@ -36,13 +36,18 @@ from .dependencies import (
 
 from src.db.redis import add_jti_to_blocklist
 
+from src.errors import (
+    UserAlreadyExists,
+    InvalidCredentials,
+    UserNotFound,
+)
+
 
 user_service = UserService()
 
 auth_router = APIRouter()
 
 REFRESH_TOKEN_EXPIRY = 2
-
 
 role_checker = RoleChecker(
     ["admin", "user"]
@@ -56,9 +61,7 @@ role_checker = RoleChecker(
 )
 async def create_user_account(
     user_data: UserCreateModel,
-    session: AsyncSession = Depends(
-        get_session
-    ),
+    session: AsyncSession = Depends(get_session),
 ):
 
     email = user_data.email
@@ -70,10 +73,7 @@ async def create_user_account(
 
     if user_exists:
 
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User with email already exists",
-        )
+        raise UserAlreadyExists()
 
     new_user = await user_service.create_user(
         user_data,
@@ -83,14 +83,10 @@ async def create_user_account(
     return new_user
 
 
-@auth_router.post(
-    "/login"
-)
+@auth_router.post("/login")
 async def login_users(
     login_data: UserLoginModel,
-    session: AsyncSession = Depends(
-        get_session
-    ),
+    session: AsyncSession = Depends(get_session),
 ):
 
     email = login_data.email
@@ -114,18 +110,14 @@ async def login_users(
             access_token = create_access_token(
                 user_data={
                     "email": user.email,
-                    "user_uid": str(
-                        user.uid
-                    ),
+                    "user_uid": str(user.uid),
                 }
             )
 
             refresh_token = create_access_token(
                 user_data={
                     "email": user.email,
-                    "user_uid": str(
-                        user.uid
-                    ),
+                    "user_uid": str(user.uid),
                 },
                 refresh=True,
                 expiry=timedelta(
@@ -140,23 +132,16 @@ async def login_users(
                     "refresh_token": refresh_token,
                     "user": {
                         "email": user.email,
-                        "uid": str(
-                            user.uid
-                        ),
+                        "uid": str(user.uid),
                         "role": user.role,
                     },
                 }
             )
 
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Invalid Email Or Password",
-    )
+    raise InvalidCredentials()
 
 
-@auth_router.get(
-    "/refresh_token"
-)
+@auth_router.get("/refresh_token")
 async def get_new_access_token(
     token_details: dict = Depends(
         RefreshTokenBearer()
@@ -182,35 +167,23 @@ async def get_new_access_token(
             }
         )
 
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Invalid Or expired token",
-    )
+    raise InvalidCredentials()
 
 
-@auth_router.get(
-    "/logout"
-)
+@auth_router.get("/logout")
 async def revoke_token(
     token_details: dict = Depends(
         AccessTokenBearer()
     ),
 ):
 
-    jti = token_details.get(
-        "jti"
-    )
+    jti = token_details.get("jti")
 
     if not jti:
 
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid token",
-        )
+        raise InvalidCredentials()
 
-    await add_jti_to_blocklist(
-        jti
-    )
+    await add_jti_to_blocklist(jti)
 
     return JSONResponse(
         content={
@@ -225,12 +198,8 @@ async def revoke_token(
     response_model=UserBooksModel,
 )
 async def get_current_user_info(
-    user=Depends(
-        get_current_user
-    ),
-    _: bool = Depends(
-        role_checker
-    ),
+    user=Depends(get_current_user),
+    _: bool = Depends(role_checker),
 ):
 
     return user

@@ -6,8 +6,6 @@ from fastapi import (
     status,
 )
 
-from fastapi.exceptions import HTTPException
-
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.books.schemas import (
@@ -24,6 +22,8 @@ from src.auth.dependencies import (
     AccessTokenBearer,
     RoleChecker,
 )
+
+from src.errors import BookNotFound
 
 
 book_router = APIRouter()
@@ -45,12 +45,8 @@ role_checker = Depends(
     dependencies=[role_checker],
 )
 async def get_all_books(
-    session: AsyncSession = Depends(
-        get_session
-    ),
-    token_details: dict = Depends(
-        access_token_bearer
-    ),
+    session: AsyncSession = Depends(get_session),
+    token_details: dict = Depends(access_token_bearer),
 ):
 
     books = await book_service.get_all_books(
@@ -67,12 +63,8 @@ async def get_all_books(
 )
 async def get_user_books(
     user_uid: str,
-    session: AsyncSession = Depends(
-        get_session
-    ),
-    token_details: dict = Depends(
-        access_token_bearer
-    ),
+    session: AsyncSession = Depends(get_session),
+    token_details: dict = Depends(access_token_bearer),
 ):
 
     books = await book_service.get_user_books(
@@ -91,12 +83,8 @@ async def get_user_books(
 )
 async def create_a_book(
     book_data: BookCreateModel,
-    session: AsyncSession = Depends(
-        get_session
-    ),
-    token_details: dict = Depends(
-        access_token_bearer
-    ),
+    session: AsyncSession = Depends(get_session),
+    token_details: dict = Depends(access_token_bearer),
 ):
 
     user_id = token_details["user"]["user_uid"]
@@ -117,12 +105,8 @@ async def create_a_book(
 )
 async def get_book(
     book_uid: str,
-    session: AsyncSession = Depends(
-        get_session
-    ),
-    token_details: dict = Depends(
-        access_token_bearer
-    ),
+    session: AsyncSession = Depends(get_session),
+    token_details: dict = Depends(access_token_bearer),
 ):
 
     book = await book_service.get_book(
@@ -132,10 +116,7 @@ async def get_book(
 
     if book is None:
 
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Book not found",
-        )
+        raise BookNotFound()
 
     return book
 
@@ -148,12 +129,8 @@ async def get_book(
 async def update_book(
     book_uid: str,
     book_update_data: BookUpdateModel,
-    session: AsyncSession = Depends(
-        get_session
-    ),
-    token_details: dict = Depends(
-        access_token_bearer
-    ),
+    session: AsyncSession = Depends(get_session),
+    token_details: dict = Depends(access_token_bearer),
 ):
 
     updated_book = await book_service.update_book(
@@ -164,10 +141,7 @@ async def update_book(
 
     if updated_book is None:
 
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Book not found",
-        )
+        raise BookNotFound()
 
     return updated_book
 
@@ -179,12 +153,8 @@ async def update_book(
 )
 async def delete_book(
     book_uid: str,
-    session: AsyncSession = Depends(
-        get_session
-    ),
-    token_details: dict = Depends(
-        access_token_bearer
-    ),
+    session: AsyncSession = Depends(get_session),
+    token_details: dict = Depends(access_token_bearer),
 ):
 
     book_to_delete = await book_service.delete_book(
@@ -194,9 +164,6 @@ async def delete_book(
 
     if book_to_delete is None:
 
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Book not found",
-        )
+        raise BookNotFound()
 
     return None
